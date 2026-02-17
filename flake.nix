@@ -75,12 +75,35 @@
     };
     # ~/~ end
     # ~/~ begin <<README.md#flake-declarations>>[4]
+    tailscaleSetup = authKeyPath: let
+      pkgs = import nixpkgs { system = "x86_64-linux"; };
+    in {
+      environment.systemPackages = [ pkgs.tailscale pkgs.jq ];
+    
+      services.tailscale.enable = true;
+      systemd.services.tailscaleAutoconnect = {
+        description = "Autoconnect to tailscale";
+        after = [ "network-pre.target" "tailscale.service" ];
+        wants = [ "network-pre.target" "tailscale.service" ];
+        wantedBy = [ "multi-user.target" ];
+    
+        script = ''
+          sleep 2
+    
+          status="$(${pkgs.tailscale}/bin/tailscale status -json | ${pkgs.jq}/bin/jq -r .BackendState)"
+          if [ $status = "Running" ]; then exit 0; fi
+          ${pkgs.tailscale}/bin/tailscale up -authkey $(cat ${authKeyPath})
+        '';
+      };
+    };
+    # ~/~ end
+    # ~/~ begin <<README.md#flake-declarations>>[5]
     networkingSetup = hostname: {
       networking.networkmanager.enable = true;
       networking.hostName = "${hostname}";
     };
     # ~/~ end
-    # ~/~ begin <<README.md#flake-declarations>>[5]
+    # ~/~ begin <<README.md#flake-declarations>>[6]
     raidDiskSetup = deviceName: {
       device = "${deviceName}";
       type = "disk";
@@ -99,13 +122,16 @@
   in {
     # ~/~ begin <<README.md#nixos-host-declaration>>[init]
     nixosConfigurations.nixoshost = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";  
+      system = "x86_64-linux";
       modules = [
         # ~/~ begin <<README.md#nixos-host-modules>>[init]
         inputs.disko.nixosModules.disko
         # ~/~ end
         # ~/~ begin <<README.md#nixos-host-modules>>[1]
         inputs.sops-nix.nixosModules.sops
+        # ~/~ end
+        # ~/~ begin <<README.md#nixos-host-modules>>[2]
+        (tailscaleSetup "/run/secrets/tailscale_auth_key")
         # ~/~ end
     
         nixpkgSetup
@@ -186,9 +212,13 @@
           # ~/~ end
           # ~/~ begin <<README.md#nixos-host-config>>[2]
           sops = {
+            age.keyFile = "/run/sops/age/keys.txt";
             defaultSopsFile = ./secrets.yaml;
             defaultSopsFormat = "yaml";
           };
+          # ~/~ end
+          # ~/~ begin <<README.md#nixos-host-config>>[3]
+          sops.secrets."tailscale_auth_key" = { };
           # ~/~ end
         }
       ];

@@ -29,7 +29,7 @@ I will store all of the configurations in a single flake file.
 }
 ```
 
-## Functions
+## Declarations
 These are functions that are shared between multiple configs.
 
 ### Nix (The Package Manager) Setup
@@ -112,6 +112,34 @@ userSetup = hostname: {
 TODO: implement setting up user password using `nix-sops` as well as SSHing into users with a key
 - Will do once secrets and SSH are setup
 
+### Tailscale
+I am using Tailscale to network the VMs and the host together to my client devices.
+
+`flake-declarations`:
+``` {.nix #flake-declarations}
+tailscaleSetup = authKeyPath: let
+  pkgs = import nixpkgs { system = "x86_64-linux"; };
+in {
+  environment.systemPackages = [ pkgs.tailscale pkgs.jq ];
+
+  services.tailscale.enable = true;
+  systemd.services.tailscaleAutoconnect = {
+    description = "Autoconnect to tailscale";
+    after = [ "network-pre.target" "tailscale.service" ];
+    wants = [ "network-pre.target" "tailscale.service" ];
+    wantedBy = [ "multi-user.target" ];
+
+    script = ''
+      sleep 2
+
+      status="$(${pkgs.tailscale}/bin/tailscale status -json | ${pkgs.jq}/bin/jq -r .BackendState)"
+      if [ $status = "Running" ]; then exit 0; fi
+      ${pkgs.tailscale}/bin/tailscale up -authkey $(cat ${authKeyPath})
+    '';
+  };
+};
+```
+
 ### Networking Setup
 This sets up the hostname of the machine as well as getting networking up.
 
@@ -128,7 +156,7 @@ networkingSetup = hostname: {
 `nixos-host-declaration`:
 ``` {.nix #nixos-host-declaration}
 nixosConfigurations.nixoshost = nixpkgs.lib.nixosSystem {
-  system = "x86_64-linux";  
+  system = "x86_64-linux";
   modules = [
     <<nixos-host-modules>>
 
@@ -149,7 +177,7 @@ nixosConfigurations.nixoshost = nixpkgs.lib.nixosSystem {
 The NixOS Host Machine is deployed using `nixos-anywhere`.
 However, I also need to transfer over an age key for my secrets, so here is a script to do all of that.
 
-![`deploy-host.sh`](deploy-host.sh):
+[`deploy-host.sh`](deploy-host.sh):
 ``` {.sh file="deploy-host.sh"}
 extra_files=$(mktemp -d)
 sudo mkdir -pv ${extra_files}/run/sops/age
@@ -315,7 +343,25 @@ Finally, I can open the `secrets.yaml` file in the host's configuration.
 `nixos-host-config`:
 ``` {.nix #nixos-host-config}
 sops = {
+  age.keyFile = "/run/sops/age/keys.txt";
   defaultSopsFile = ./secrets.yaml;
   defaultSopsFormat = "yaml";
 };
+```
+
+### Tailscale
+The host can directly access the `tailscale_auth_key` from the output path from decrypting the secret.
+
+First, I need to access the secret using `sops-nix`.
+
+`nixos-host-config`:
+``` {.nix #nixos-host-config}
+sops.secrets."tailscale_auth_key" = { };
+```
+
+Then, I simply import the Tailscale setup as a module.
+
+`nixos-host-modules`:
+``` {.nix #nixos-host-modules}
+(tailscaleSetup "/run/secrets/tailscale_auth_key")
 ```
