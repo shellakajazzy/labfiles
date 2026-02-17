@@ -110,7 +110,7 @@ The user should have the same name as the machine, and the root user should not 
 `flake-declarations`:
 ``` {.nix #flake-declarations}
 userSetup = hostname: {
-  users.mutableUsers = false;
+  users.mutableUsers = true;
   users.users = {
     root = {
       hashedPassword = "!";
@@ -122,12 +122,14 @@ userSetup = hostname: {
       description = "${hostname}";
       group = "users";
       extraGroups = [ "wheel" ];
-      password = "password123";
-      openssh.authorizedKeys.keys =  [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKEmnK6phRQrpbHncPDo83riVYs8b6GzpdF3c6znIb0t homelab" ];
+      initialPassword = "5Mez8Gia";
+      openssh.authorizedKeys.keys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKEmnK6phRQrpbHncPDo83riVYs8b6GzpdF3c6znIb0t homelab" ];
     };
   };
 };
 ```
+
+The normal user on every machine needs to have their password changed manually by me.
 
 ### Tailscale
 I am using Tailscale to network the VMs and the host together to my client devices.
@@ -392,5 +394,17 @@ Then, I simply import the Tailscale setup as a module.
 
 `nixos-host-modules`:
 ``` {.nix #nixos-host-modules}
-(tailscaleSetup "/run/secrets/tailscale_auth_key")
+({ config, ... }: tailscaleSetup "${config.sops.secrets."tailscale_auth_key".path}")
+```
+
+### Wake on Lan
+I usually do not keep my server turned on when I am not using it (usually at night).
+Thus, I need wake on lan enabled to turn my server powered on.
+
+`nixos-host-config`:
+``` {.nix #nixos-host-config}
+networking.interfaces = {
+  eno1.wakeOnLan.enable = true;
+  eno2.wakeOnLan.enable = true;
+}; 
 ```

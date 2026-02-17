@@ -71,7 +71,7 @@
     # ~/~ end
     # ~/~ begin <<README.md#flake-declarations>>[4]
     userSetup = hostname: {
-      users.mutableUsers = false;
+      users.mutableUsers = true;
       users.users = {
         root = {
           hashedPassword = "!";
@@ -83,8 +83,8 @@
           description = "${hostname}";
           group = "users";
           extraGroups = [ "wheel" ];
-          password = "password123";
-          openssh.authorizedKeys.keys =  [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKEmnK6phRQrpbHncPDo83riVYs8b6GzpdF3c6znIb0t homelab" ];
+          initialPassword = "5Mez8Gia";
+          openssh.authorizedKeys.keys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKEmnK6phRQrpbHncPDo83riVYs8b6GzpdF3c6znIb0t homelab" ];
         };
       };
     };
@@ -146,7 +146,7 @@
         inputs.sops-nix.nixosModules.sops
         # ~/~ end
         # ~/~ begin <<README.md#nixos-host-modules>>[2]
-        (tailscaleSetup "/run/secrets/tailscale_auth_key")
+        ({ config, ... }: tailscaleSetup "${config.sops.secrets."tailscale_auth_key".path}")
         # ~/~ end
     
         nixpkgSetup
@@ -242,6 +242,12 @@
           # ~/~ end
           # ~/~ begin <<README.md#nixos-host-config>>[4]
           sops.secrets."tailscale_auth_key" = { };
+          # ~/~ end
+          # ~/~ begin <<README.md#nixos-host-config>>[5]
+          networking.interfaces = {
+            eno1.wakeOnLan.enable = true;
+            eno2.wakeOnLan.enable = true;
+          }; 
           # ~/~ end
         }
       ];
