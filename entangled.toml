@@ -1,0 +1,7 @@
+version = "2.0"
+watch_list = ["**/*.md"]
+
+[[languages]]
+name = "Nix"
+identifiers = ["nix"]
+comment = { open = "#" }
