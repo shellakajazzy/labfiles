@@ -11,6 +11,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # ~/~ end
+    # ~/~ begin <<README.md#flake-inputs>>[1]
+    sops-nix.url = "github:Mic92/sops-nix";
+    # ~/~ end
   };
 
   outputs = { self, nixpkgs, ... } @ inputs: let
@@ -101,6 +104,9 @@
         # ~/~ begin <<README.md#nixos-host-modules>>[init]
         inputs.disko.nixosModules.disko
         # ~/~ end
+        # ~/~ begin <<README.md#nixos-host-modules>>[1]
+        inputs.sops-nix.nixosModules.sops
+        # ~/~ end
     
         nixpkgSetup
         localizationSetup
@@ -176,6 +182,12 @@
             device = "nodev";
             efiSupport = true;
             efiInstallAsRemovable = true;
+          };
+          # ~/~ end
+          # ~/~ begin <<README.md#nixos-host-config>>[2]
+          sops = {
+            defaultSopsFile = ./secrets.yaml;
+            defaultSopsFormat = "yaml";
           };
           # ~/~ end
         }

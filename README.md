@@ -145,6 +145,31 @@ nixosConfigurations.nixoshost = nixpkgs.lib.nixosSystem {
 };
 ```
 
+### Deployement
+The NixOS Host Machine is deployed using `nixos-anywhere`.
+However, I also need to transfer over an age key for my secrets, so here is a script to do all of that.
+
+![`deploy-host.sh`](deploy-host.sh):
+``` {.sh file="deploy-host.sh"}
+extra_files=$(mktemp -d)
+sudo mkdir -pv ${extra_files}/run/sops/age
+sudo cp --verbose --archive $1 ${extra_files}/run/sops/age/keys.txt
+sudo chmod 600 ${extra_files}/run/sops/age/keys.txt
+
+nix run github:nix-community/nixos-anywhere --                                  \
+  --flake .#nixoshost                                                           \
+  --generate-hardware-config nixos-generate-config ./hardware-configuration.nix \
+  --extra-files "${extra_files}"                                                \
+  --target-host $2
+```
+
+To deploy, just run the following:
+```sh
+$ sh deploy-host.sh [PATH_TO_AGE_KEY] [USER@IP_ADDR]
+```
+
+This should work on any machine that is on the same network as the host and is running Nix on UNIX-like operating system.
+
 ### Disk Setup
 The NixOS Host Machine is running on my Dell PowerEdge T420 with 8x 1TB hard drives and a single 256GB SSD.
 It should be configured to run RAID on the hard drives and a normal boot disk setup on the SSD.
@@ -263,5 +288,34 @@ boot.loader.grub = {
   device = "nodev";
   efiSupport = true;
   efiInstallAsRemovable = true;
+};
+```
+
+### Secrets
+I am using `sops-nix` to manage my secrets.
+Only the host will be able to decrypt the `secrets.yaml` file, and will share secrets with the VMs through a directory share.
+This way, the VMs will only have access to the secrets they need to have access to.
+
+First, I need to add `sops-nix` to my flake inputs:
+
+`flake-inputs`:
+``` {.nix #flake-inputs}
+sops-nix.url = "github:Mic92/sops-nix";
+```
+
+Then, I need to include the `sops-nix` NixOS module.
+
+`nixos-host-modules`:
+``` {.nix #nixos-host-modules}
+inputs.sops-nix.nixosModules.sops
+```
+
+Finally, I can open the `secrets.yaml` file in the host's configuration.
+
+`nixos-host-config`:
+``` {.nix #nixos-host-config}
+sops = {
+  defaultSopsFile = ./secrets.yaml;
+  defaultSopsFormat = "yaml";
 };
 ```
