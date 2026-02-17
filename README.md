@@ -85,6 +85,25 @@ bootloaderSetup = {
 };
 ```
 
+### SSH Setup
+I am using SSH to access my machines.
+
+`flake-declarations`:
+``` {.nix #flake-declarations}
+sshSetup = {
+  services.openssh = {
+    enable = true;
+    ports = [ 22 ];
+    settings = {
+      PermitRootLogin = "no";
+      PubkeyAuthentication = true;
+      PasswordAuthentication = false;
+      KbdInteractiveAuthentication = false;
+    };
+  };
+};
+```
+
 ### User Setup
 The user should have the same name as the machine, and the root user should not be able to be logged into.
 
@@ -104,13 +123,11 @@ userSetup = hostname: {
       group = "users";
       extraGroups = [ "wheel" ];
       password = "password123";
+      openssh.authorizedKeys.keys =  [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKEmnK6phRQrpbHncPDo83riVYs8b6GzpdF3c6znIb0t homelab" ];
     };
   };
 };
 ```
-
-TODO: implement setting up user password using `nix-sops` as well as SSHing into users with a key
-- Will do once secrets and SSH are setup
 
 ### Tailscale
 I am using Tailscale to network the VMs and the host together to my client devices.
@@ -162,6 +179,7 @@ nixosConfigurations.nixoshost = nixpkgs.lib.nixosSystem {
 
     nixpkgSetup
     localizationSetup
+    sshSetup
     (userSetup "nixoshost")
     (networkingSetup "nixoshost")
 
@@ -180,20 +198,20 @@ However, I also need to transfer over an age key for my secrets, so here is a sc
 [`deploy-host.sh`](deploy-host.sh):
 ``` {.sh file="deploy-host.sh"}
 extra_files=$(mktemp -d)
-sudo mkdir -pv ${extra_files}/run/sops/age
-sudo cp --verbose --archive $1 ${extra_files}/run/sops/age/keys.txt
-sudo chmod 600 ${extra_files}/run/sops/age/keys.txt
+mkdir -pv ${extra_files}/run/sops/age
+cp --verbose --archive ./keys.txt ${extra_files}/run/sops/age/keys.txt
+chmod 600 ${extra_files}/run/sops/age/keys.txt
 
 nix run github:nix-community/nixos-anywhere --                                  \
   --flake .#nixoshost                                                           \
   --generate-hardware-config nixos-generate-config ./hardware-configuration.nix \
   --extra-files "${extra_files}"                                                \
-  --target-host $2
+  --target-host $1
 ```
 
 To deploy, just run the following:
 ```sh
-$ sh deploy-host.sh [PATH_TO_AGE_KEY] [USER@IP_ADDR]
+$ sh deploy-host.sh [USER@IP_ADDR]
 ```
 
 This should work on any machine that is on the same network as the host and is running Nix on UNIX-like operating system.
@@ -349,7 +367,18 @@ sops = {
 };
 ```
 
-### Tailscale
+Additionally, I need to ensure that the age key is present on the host machine for it to be able to unencrypt the secrets.
+
+`nixos-host-config`:
+``` {.nix #nixos-host-config}
+boot.initrd.postDeviceCommands = ''
+  mkdir -p /run/sops/age
+  cp ${./keys.txt} /run/sops/age/keys.txt
+  chmod -R 600 /run/sops/age/keys.txt
+'';
+```
+
+#### Tailscale
 The host can directly access the `tailscale_auth_key` from the output path from decrypting the secret.
 
 First, I need to access the secret using `sops-nix`.

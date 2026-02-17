@@ -56,6 +56,20 @@
     };
     # ~/~ end
     # ~/~ begin <<README.md#flake-declarations>>[3]
+    sshSetup = {
+      services.openssh = {
+        enable = true;
+        ports = [ 22 ];
+        settings = {
+          PermitRootLogin = "no";
+          PubkeyAuthentication = true;
+          PasswordAuthentication = false;
+          KbdInteractiveAuthentication = false;
+        };
+      };
+    };
+    # ~/~ end
+    # ~/~ begin <<README.md#flake-declarations>>[4]
     userSetup = hostname: {
       users.mutableUsers = false;
       users.users = {
@@ -70,11 +84,12 @@
           group = "users";
           extraGroups = [ "wheel" ];
           password = "password123";
+          openssh.authorizedKeys.keys =  [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKEmnK6phRQrpbHncPDo83riVYs8b6GzpdF3c6znIb0t homelab" ];
         };
       };
     };
     # ~/~ end
-    # ~/~ begin <<README.md#flake-declarations>>[4]
+    # ~/~ begin <<README.md#flake-declarations>>[5]
     tailscaleSetup = authKeyPath: let
       pkgs = import nixpkgs { system = "x86_64-linux"; };
     in {
@@ -97,13 +112,13 @@
       };
     };
     # ~/~ end
-    # ~/~ begin <<README.md#flake-declarations>>[5]
+    # ~/~ begin <<README.md#flake-declarations>>[6]
     networkingSetup = hostname: {
       networking.networkmanager.enable = true;
       networking.hostName = "${hostname}";
     };
     # ~/~ end
-    # ~/~ begin <<README.md#flake-declarations>>[6]
+    # ~/~ begin <<README.md#flake-declarations>>[7]
     raidDiskSetup = deviceName: {
       device = "${deviceName}";
       type = "disk";
@@ -136,6 +151,7 @@
     
         nixpkgSetup
         localizationSetup
+        sshSetup
         (userSetup "nixoshost")
         (networkingSetup "nixoshost")
     
@@ -218,6 +234,13 @@
           };
           # ~/~ end
           # ~/~ begin <<README.md#nixos-host-config>>[3]
+          boot.initrd.postDeviceCommands = ''
+            mkdir -p /run/sops/age
+            cp ${./keys.txt} /run/sops/age/keys.txt
+            chmod -R 600 /run/sops/age/keys.txt
+          '';
+          # ~/~ end
+          # ~/~ begin <<README.md#nixos-host-config>>[4]
           sops.secrets."tailscale_auth_key" = { };
           # ~/~ end
         }

@@ -1,0 +1,2 @@
+# replace the contents of this file with your age key to access sops, and update the .sops.yaml file
+# then, run the following: git update-index --assume-unchanged ./keys.txt
