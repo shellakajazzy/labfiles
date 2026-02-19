@@ -408,3 +408,16 @@ networking.interfaces = {
   eno2.wakeOnLan.enable = true;
 }; 
 ```
+
+## Temporary Developer Tools (Temporary)
+These are programs I need to develop this, but I plan on creating a flake in the future for my dotfiles.
+
+`flake-declarations`:
+``` {.nix #flake-declarations}
+tempDevTools = let pkgs = import nixpkgs { system = "x86_64-linux"; }; in { environment.systemPackages = with pkgs; [ tmux neovim git gh ]; };
+```
+
+`nixos-host-modules`:
+``` {.nix #nixos-host-modules}
+tempDevTools
+```

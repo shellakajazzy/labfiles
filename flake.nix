@@ -134,6 +134,9 @@
       };
     };
     # ~/~ end
+    # ~/~ begin <<README.md#flake-declarations>>[8]
+    tempDevTools = let pkgs = import nixpkgs { system = "x86_64-linux"; }; in { environment.systemPackages = with pkgs; [ tmux neovim git gh ]; };
+    # ~/~ end
   in {
     # ~/~ begin <<README.md#nixos-host-declaration>>[init]
     nixosConfigurations.nixoshost = nixpkgs.lib.nixosSystem {
@@ -147,6 +150,9 @@
         # ~/~ end
         # ~/~ begin <<README.md#nixos-host-modules>>[2]
         ({ config, ... }: tailscaleSetup "${config.sops.secrets."tailscale_auth_key".path}")
+        # ~/~ end
+        # ~/~ begin <<README.md#nixos-host-modules>>[3]
+        tempDevTools
         # ~/~ end
     
         nixpkgSetup
